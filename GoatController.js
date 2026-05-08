@@ -12,6 +12,9 @@
 export const GOAT_STATES = {
     IDLE: 'IDLE',
     WALKING: 'WALKING',
+    RUNNING: 'RUNNING',
+    JUMPING: 'JUMPING',
+    ATTACKING: 'ATTACKING',
     EATING: 'EATING',
     ALERT: 'ALERT',
     SURPRISED: 'SURPRISED',
@@ -37,15 +40,18 @@ export class GoatController {
         this.animations = {
             [GOAT_STATES.IDLE]:      ['idle_1', 'idle_1', 'idle_1', 'idle_2', 'idle_1', 'idle_6', 'idle_1'],
             [GOAT_STATES.ALERT]:     ['alerrt0', 'alert_1', 'confuse', 'surprised_2', 'surprised_5', 'alerrt0'],
-            [GOAT_STATES.WALKING]:   ['idle_1', 'walk_2', 'idle_1', 'walk_2'],
-            [GOAT_STATES.EATING]:    ['eat grass', 'atack1', 'eat grass 2', 'walk_3', 'eat grass3', 'atack2'],
+            [GOAT_STATES.WALKING]:   ['idle_1', 'walk_2', 'idle_1', 'walk_4'],
+            [GOAT_STATES.RUNNING]:   ['run1', 'run2', 'run3'],
+            [GOAT_STATES.JUMPING]:   ['jump1', 'jump2', 'jump3', 'jump4'],
+            [GOAT_STATES.ATTACKING]: ['atack1', 'atack2', 'atack1', 'atack2'],
+            [GOAT_STATES.EATING]:    ['eat grass', 'eat grass 2', 'eat grass3'],
             [GOAT_STATES.SURPRISED]: ['surprised_1', 'surprised_4', 'surprised_1'],
             [GOAT_STATES.SLEEPING]:  ['relax', 'calm', 'sleep1', 'sleep2', 'sleeping', 'sleep2', 'sleep1'],
             [GOAT_STATES.DRAGGING]:  ['high jump'],
             'CHAOS':                 ['run1', 'run2', 'run3', 'jump1', 'jump2', 'jump3', 'jump4', 'high jump', 'high jump2']
         };
 
-        this.phrases = [
+        const defaultPhrases = [
             "¿Me das una rama o te borro el System32?", "Soy el 'root' de esta pradera.",
             "Mi barba tiene mejor syntax highlighting que tu editor.", "¿Es esto un pull request o un pull de mi cola?",
             "No es un deadlock, es que me quedé mirando fijamente.", "Meee-moria RAM insuficiente para tanto pasto.",
@@ -76,10 +82,13 @@ export class GoatController {
             "Status: Rumiando... 75% completado.", "Exit code 0: La cabra ha dejado el edificio."
         ];
 
+        this.phrases = config.phrases || defaultPhrases;
+
+
         // Click detection — using timestamp array instead of a buggy timer
         this._clickTimestamps = [];
 
-        this.lastPhraseIndex = -1;
+        this.phrasePool = []; // Pool of unused indices
         this.currentMessage = "";
         this.messageTimer = 0;
         this.isChaosMode = false;
@@ -169,14 +178,20 @@ export class GoatController {
         }
 
         // Frame advance
-        const effectiveDuration = this.isChaosMode ? 150 : (this.state === GOAT_STATES.DRAGGING ? 400 : this.frameDuration);
+        let effectiveDuration = this.frameDuration;
+        if (this.isChaosMode) effectiveDuration = 150;
+        else if (this.state === GOAT_STATES.RUNNING) effectiveDuration = 250;
+        else if (this.state === GOAT_STATES.JUMPING) effectiveDuration = 400;
+        else if (this.state === GOAT_STATES.ATTACKING) effectiveDuration = 350;
+        else if (this.state === GOAT_STATES.DRAGGING) effectiveDuration = 400;
 
         if (this.tick >= effectiveDuration) {
             this.tick = 0;
             this.frame = (this.frame + 1) % this.maxFrames;
 
             // On loop completion, decide new behavior
-            if (this.frame === 0 && this.stateTime > 8000 && !this.isChaosMode && this.state !== GOAT_STATES.DRAGGING) {
+            const minStateTime = this.state === GOAT_STATES.IDLE ? 3000 : 6000;
+            if (this.frame === 0 && this.stateTime > minStateTime && !this.isChaosMode && this.state !== GOAT_STATES.DRAGGING) {
                 this.decideNextBehavior();
             }
 
@@ -198,14 +213,17 @@ export class GoatController {
     speak() {
         if (this.currentMessage) return; // Don't interrupt existing message
 
-        let index;
-        let attempts = 0;
-        do {
-            index = Math.floor(Math.random() * this.phrases.length);
-            attempts++;
-        } while (index === this.lastPhraseIndex && attempts < 5);
+        // Refill and shuffle pool if empty
+        if (this.phrasePool.length === 0) {
+            this.phrasePool = Array.from({ length: this.phrases.length }, (_, i) => i);
+            // Fisher-Yates shuffle
+            for (let i = this.phrasePool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [this.phrasePool[i], this.phrasePool[j]] = [this.phrasePool[j], this.phrasePool[i]];
+            }
+        }
 
-        this.lastPhraseIndex = index;
+        const index = this.phrasePool.pop();
         this.currentMessage = this.phrases[index];
         this.messageTimer = 4500;
         this.onMessageChange(this.currentMessage);
@@ -220,18 +238,25 @@ export class GoatController {
     }
 
     decideNextBehavior() {
-        // Direction is now handled externally by auto-mirror — don't override here
         const rand = Math.random();
 
-        if (this.state === GOAT_STATES.IDLE || this.state === GOAT_STATES.SURPRISED || this.state === GOAT_STATES.SLEEPING) {
-            if      (rand < 0.01) this.setState(GOAT_STATES.WALKING);
-            else if (rand < 0.02) this.setState(GOAT_STATES.EATING);
-            else if (rand < 0.03) this.setState(GOAT_STATES.ALERT);
-            else if (rand < 0.04) this.setState(GOAT_STATES.SLEEPING);
-            // else: stay IDLE — this is the default, no explicit setState needed
-        } else if (this.state === GOAT_STATES.EATING || this.state === GOAT_STATES.WALKING || this.state === GOAT_STATES.ALERT) {
-            if (rand < 0.15) this.setState(GOAT_STATES.IDLE);
+        // If currently in a non-idle state, higher chance to return to IDLE
+        if (this.state !== GOAT_STATES.IDLE) {
+            if (rand < 0.4) {
+                this.setState(GOAT_STATES.IDLE);
+                return;
+            }
         }
+
+        // If IDLE or just finished another state, pick something new
+        if (rand < 0.08) this.setState(GOAT_STATES.WALKING);
+        else if (rand < 0.16) this.setState(GOAT_STATES.EATING);
+        else if (rand < 0.24) this.setState(GOAT_STATES.ALERT);
+        else if (rand < 0.32) this.setState(GOAT_STATES.SLEEPING);
+        else if (rand < 0.38) this.setState(GOAT_STATES.RUNNING);
+        else if (rand < 0.44) this.setState(GOAT_STATES.JUMPING);
+        else if (rand < 0.50) this.setState(GOAT_STATES.ATTACKING);
+        else this.setState(GOAT_STATES.IDLE);
     }
 
     setState(newState) {

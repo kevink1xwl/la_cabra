@@ -33,7 +33,12 @@ const PIVOTS = {
 const GOAT_SIZE = 300; // canvas display size in px
 
 // ── Component ─────────────────────────────────────────────────────────────────
-const LaCabra = () => {
+const LaCabra = ({
+    phrases = null,
+    goatSize = 300,
+    assetsPath = '/cabra/',
+    initialPosition = { bottom: '20px', right: '20px' }
+}) => {
     const canvasRef      = useRef(null);
     const containerRef   = useRef(null);
     const controllerRef  = useRef(null);
@@ -44,6 +49,8 @@ const LaCabra = () => {
     const envAssetsRef   = useRef({});
     const environmentRef = useRef([]);
     const animIdRef      = useRef(null);
+
+    const GOAT_DISPLAY_SIZE = goatSize;
 
     // Physics state
     const posRef         = useRef({ x: 0, y: 0 });
@@ -106,8 +113,8 @@ const LaCabra = () => {
         ];
 
         Promise.all([
-            ...goatKeys.map(k => load(`/cabra/${k}.png`).then(c => { if (c) goatFramesRef.current[k] = c; })),
-            ...envKeys .map(({ id, src }) => load(src).then(c => { if (c) envAssetsRef.current[id] = c; }))
+            ...goatKeys.map(k => load(`${assetsPath}${k}.png`).then(c => { if (c) goatFramesRef.current[k] = c; })),
+            ...envKeys .map(({ id, src }) => load(src.replace('/cabra/', assetsPath)).then(c => { if (c) envAssetsRef.current[id] = c; }))
         ]).then(() => {
             // Build environment once
             const items = [];
@@ -142,18 +149,21 @@ const LaCabra = () => {
         isAbsoluteRef.current = false;
         const c = containerRef.current;
         if (!c) return;
-        c.style.bottom = '20px'; c.style.right = '20px';
-        c.style.top    = 'auto'; c.style.left  = 'auto';
+        c.style.bottom = initialPosition.bottom || 'auto';
+        c.style.right  = initialPosition.right || 'auto';
+        c.style.top    = initialPosition.top || 'auto';
+        c.style.left   = initialPosition.left || 'auto';
         c.style.transform = 'none';
         posRef.current = { x: 0, y: 0 };
         velRef.current = { x: -12, y: -12 };
-    }, []);
+    }, [initialPosition]);
 
     // ── Main animation loop ───────────────────────────────────────────────────
     useEffect(() => {
         if (!isLoaded) return;
 
         const ctrl = new GoatController({
+            phrases: phrases,
             onMessageChange: (msg) => setMessage(msg),
             onSpeak: () => {
                 for (let i = 0; i < 12; i++) particlesRef.current.push(new Particle(250, 260));
@@ -206,8 +216,8 @@ const LaCabra = () => {
             }
             posRef.current.x += velRef.current.x;
             posRef.current.y += velRef.current.y;
-            const maxX = window.innerWidth  - GOAT_SIZE;
-            const maxY = window.innerHeight - GOAT_SIZE;
+            const maxX = window.innerWidth  - GOAT_DISPLAY_SIZE;
+            const maxY = window.innerHeight - GOAT_DISPLAY_SIZE;
             if (posRef.current.x <= 0)    { posRef.current.x = 0;    velRef.current.x =  Math.abs(velRef.current.x); }
             if (posRef.current.x >= maxX)  { posRef.current.x = maxX; velRef.current.x = -Math.abs(velRef.current.x); }
             if (posRef.current.y <= 0)    { posRef.current.y = 0;    velRef.current.y =  Math.abs(velRef.current.y); }
@@ -215,8 +225,8 @@ const LaCabra = () => {
             container.style.transform = `translate(${posRef.current.x}px, ${posRef.current.y}px)`;
 
         } else if (isWalkingHome && isAbsoluteRef.current) {
-            const targetX = window.innerWidth  - GOAT_SIZE - 20;
-            const targetY = window.innerHeight - GOAT_SIZE - 20;
+            const targetX = window.innerWidth  - GOAT_DISPLAY_SIZE - (parseInt(initialPosition.right) || 20);
+            const targetY = window.innerHeight - GOAT_DISPLAY_SIZE - (parseInt(initialPosition.bottom) || 20);
             const dx = targetX - posRef.current.x;
             const dy = targetY - posRef.current.y;
             ctrl.direction = dx > 0 ? 1 : -1;
@@ -376,12 +386,16 @@ const LaCabra = () => {
             <div
                 ref={containerRef}
                 className={`la-cabra-container${isChaos ? ' is-chaos' : ''}`}
+                style={!isAbsoluteRef.current ? initialPosition : {}}
                 onMouseDown={handleMouseDown}
                 onMouseEnter={handleMouseEnter}
             >
                 {/* Normal bubble — child of container, positioned above goat */}
                 {message && !isChaos && (
-                    <div className="la-cabra-bubble">
+                    <div 
+                        className="la-cabra-bubble"
+                        style={{ bottom: `${GOAT_DISPLAY_SIZE - 10}px` }}
+                    >
                         {message}
                         <div className="la-cabra-bubble-tail" />
                     </div>
@@ -390,7 +404,7 @@ const LaCabra = () => {
                     ref={canvasRef}
                     width={500} height={500}
                     className="la-cabra-canvas"
-                    style={{ width: `${GOAT_SIZE}px`, height: `${GOAT_SIZE}px` }}
+                    style={{ width: `${GOAT_DISPLAY_SIZE}px`, height: `${GOAT_DISPLAY_SIZE}px` }}
                 />
             </div>
 

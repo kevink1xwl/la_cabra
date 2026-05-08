@@ -2,8 +2,6 @@
 
 .la-cabra-container {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
     z-index: 9999;
     cursor: grab;
     user-select: none;
@@ -28,7 +26,6 @@
 /* Premium Speech Bubble */
 .la-cabra-bubble {
     position: absolute;
-    bottom: 290px;
     left: 50%;
     transform: translateX(-50%);
     background: white;
