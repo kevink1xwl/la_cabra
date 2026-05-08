@@ -1,0 +1,112 @@
+/* LaCabra.css - v4 Clean */
+
+.la-cabra-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    cursor: grab;
+    user-select: none;
+    animation: biome-fade 0.8s ease-out;
+}
+
+/* Only scale on hover when NOT being dragged */
+.la-cabra-container:not(.is-dragging):not(.is-chaos):hover .la-cabra-canvas {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+.la-cabra-container.is-dragging {
+    cursor: grabbing;
+}
+
+.la-cabra-canvas {
+    image-rendering: pixelated;
+    display: block;
+}
+
+/* Premium Speech Bubble */
+.la-cabra-bubble {
+    position: absolute;
+    bottom: 290px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    color: #1a202c;
+    padding: 12px 18px;
+    border-radius: 18px;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    border: 3px solid #1a202c;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.15);
+    max-width: 240px;
+    text-align: center;
+    word-wrap: break-word;
+    white-space: normal;
+    animation: pop-up 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.la-cabra-bubble-tail {
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 12px solid #1a202c;
+}
+
+.la-cabra-bubble-tail::after {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: -7px;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 9px solid white;
+}
+
+/* Chaos Bubble - overrides to fixed position */
+.la-cabra-bubble.chaos {
+    position: fixed;
+    bottom: 110px;
+    right: 40px;
+    left: auto;
+    transform: none;
+    background: #1a1a2e;
+    color: #fff;
+    border: 3px solid #e94560;
+    font-size: 15px;
+    animation: spam-shake 0.08s infinite;
+    pointer-events: none;
+}
+
+.la-cabra-bubble.chaos .la-cabra-bubble-tail {
+    display: none; /* tail doesn't make sense on fixed position */
+}
+
+/* Animations */
+@keyframes pop-up {
+    from { transform: translateX(-50%) scale(0.3) translateY(15px); opacity: 0; }
+    to   { transform: translateX(-50%) scale(1) translateY(0); opacity: 1; }
+}
+
+@keyframes biome-fade {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spam-shake {
+    0%   { transform: translate(2px, 2px);  border-color: #e94560; }
+    20%  { transform: translate(-2px, -2px); border-color: #f5a623; }
+    40%  { transform: translate(2px, -2px);  border-color: #7ed321; }
+    60%  { transform: translate(-2px, 2px);  border-color: #00d2ff; }
+    80%  { transform: translate(2px, 0);     border-color: #bd10e0; }
+    100% { transform: translate(0, 2px);     border-color: #e94560; }
+}
